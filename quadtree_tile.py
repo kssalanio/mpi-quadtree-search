@@ -37,7 +37,7 @@ def write_quadtree_to_shp(quadtree, shp_fh, qtile_properties_dict):
         
 def rec_tile_search(quadtree, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit=1024):
     if (quadtree.boundary.to_shapely_poly().within(query_shp_geom)):
-        # Return after tile within geometry
+        # Return and write to output shapefile if tile is within query shapefile geometry
         qtile_properties_dict["DEPTH"] = quadtree.depth
         qtile_properties_dict["CX"] = quadtree.boundary.cx
         qtile_properties_dict["CY"] = quadtree.boundary.cy
