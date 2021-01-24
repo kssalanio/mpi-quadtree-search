@@ -3,6 +3,10 @@ import numpy
 import os
 import random
 import sys
+import gdalconst
+
+_BUFFER = 50  # meters
+
 
 try:
     #from osgeo import ogr, osr, gdal, gdalnumeric, gdalconst
@@ -32,16 +36,18 @@ def open_raster(raster_filepath):
     dataset = gdal.Open(path)
     if dataset is None:
         raise Exception(f"Cannot open raster in path [{raster_filepath}]!")
-    raster = {"dataset": dataset,
+    raster_dct = {"dataset": dataset,
               "projection": dataset.GetProjection(),
               "geotransform": dataset.GetGeoTransform(),
               "cols": dataset.RasterXSize,
               "rows": dataset.RasterYSize,
               "name": name}
-    print(f"Opened raster [{raster["name"]}] with projection [{raster["projection"]}]")
-    return raster
+    print(f"Opened raster [{raster_dct['name']}] with projection [{raster_dct['projection']}]")
+    return raster_dct
 
-def get_band_array_tile(raster, raster_band, xoff, yoff, size):
+def get_band_array_tile(raster_band, raster_band_arr,
+    raster_geotransform, raster_band_nodata, raster_band_unit_type,
+    min_x, min_y, max_x, max_y):
     # Assumes a single band raster dataset
     # xoff, yoff - coordinates of upper left corner
     # xsize, ysize - tile size
@@ -54,29 +60,31 @@ def get_band_array_tile(raster, raster_band, xoff, yoff, size):
     """
 
     # Add buffers
-    ul_x, ul_y = xoff - _BUFFER, yoff + _BUFFER
-    lr_x, lr_y = xoff + size + _BUFFER, yoff - size - _BUFFER
+    # ul_x, ul_y = xoff - _BUFFER, yoff + _BUFFER
+    # lr_x, lr_y = xoff + size + _BUFFER, yoff - size - _BUFFER
 
     # Get tile bounding box pixel coordinates
-    ul_c, ul_r = world2pixel(raster["geotransform"], ul_x, ul_y)
-    lr_c, lr_r = world2pixel(raster["geotransform"], lr_x, lr_y)
-    _logger.debug("ul_c = %s ul_r = %s lr_c = %s lr_r = %s", ul_c, ul_r,
-                  lr_c, lr_r)
+    # ul_col, ul_row = world2pixel(raster["geotransform"], ul_x, ul_y)
+    # lr_col, lr_row = world2pixel(raster["geotransform"], lr_x, lr_y)
+    
+    ul_col, ul_row = world2pixel(raster_geotransform, min_x, max_y)
+    lr_col, lr_row = world2pixel(raster_geotransform, max_x, min_y)
+    print(f"min_x = {min_x} max_y = {max_y} max_x = {max_x} min_y = {min_y}")
+    print(f"ul_col = {ul_col} ul_row = {ul_row} lr_col = {lr_col} lr_row = {lr_row}")
 
     # Get tile subset
-    tile = raster_band["band_array"][ul_r:lr_r, ul_c:lr_c]
+    tile = raster_band_arr[ul_row:lr_row, ul_col:lr_col]
 
     # Check if band subset has data
-    nodata = raster_band["nodata"]
-    if nodata == tile.min() == tile.max():
-        _logger.debug("Tile has no data! Skipping.")
+    if raster_band_nodata == tile.min() == tile.max():
+        print("Tile has no data! Skipping.")
         return None
 
     # return tile, tile_cols, tile_rows, ul_x, ul_y
-    return tile, ul_x, ul_y
+    return tile, min_x, max_y
 
 def write_raster(path, driver_name, new_band_array, data_type, geotransform,
-                 raster, raster_band):
+                 raster_prj, raster_band_nodata, raster_band_unit_type):
     """
     # Save new GeoTIFF
     osgeotools.write_raster(tile_path, "GTiff", tile,
@@ -86,7 +94,7 @@ def write_raster(path, driver_name, new_band_array, data_type, geotransform,
     # Assumes 1-band raster
 
     # Check if driver exists
-    driver = _open_gdal_driver(driver_name)
+    driver = gdal.GetDriverByName(driver_name)
 
     rows, cols = new_band_array.shape
 
@@ -95,16 +103,24 @@ def write_raster(path, driver_name, new_band_array, data_type, geotransform,
 
     # Set geotransform and prjection of raster dataset
     raster_dataset.SetGeoTransform(geotransform)
-    raster_dataset.SetProjection(raster["projection"])
+    raster_dataset.SetProjection(raster_prj)
 
     # Get the first raster band and write the band array data
     raster_dataset.GetRasterBand(1).WriteArray(new_band_array)
     # Also set the no data value, unit type and compute statistics
-    raster_dataset.GetRasterBand(1).SetNoDataValue(raster_band["nodata"])
-    raster_dataset.GetRasterBand(1).SetUnitType(raster_band["unit_type"])
+    raster_dataset.GetRasterBand(1).SetNoDataValue(raster_band_nodata)
+    raster_dataset.GetRasterBand(1).SetUnitType(raster_band_unit_type)
     raster_dataset.GetRasterBand(1).ComputeStatistics(False)
     # Flush data
     del raster_dataset
+
+def isexists(path):
+    normpath = os.path.normpath(path)
+    # Check if path exists
+    if not os.path.exists(normpath):
+        _logger.error("%s path does not exist! Exiting.", path)
+        exit(1)
+    return normpath
 
 if __name__ == "__main__":
     #Parse CLI arguments

@@ -1,12 +1,14 @@
-import shapely
-from shapely.geometry import mapping, Polygon, shape, LineString
-import fiona
-from fiona.crs import from_epsg
 import math
 import numpy
 from pprint import pprint
 import argparse
 import itertools
+from enum import IntEnum
+
+import shapely
+from shapely.geometry import mapping, Polygon, shape, LineString
+import fiona
+from fiona.crs import from_epsg
 from shapely.ops import unary_union
 
 import local_config
@@ -100,7 +102,12 @@ class Rect:
         x1, y1 = self.west_edge, self.north_edge
         x2, y2 = self.east_edge, self.south_edge
         ax.plot([x1,x2,x2,x1,x1],[y1,y1,y2,y2,y1], c=c, lw=lw, **kwargs)
-        
+
+class QuadTreeNodeType(IntEnum):
+    OUTSIDE     = 0
+    INSIDE      = 1
+    INTERSECTS  = 2
+
 class QuadTree:
     """A class implementing a quadtree."""
 
@@ -120,6 +127,7 @@ class QuadTree:
         self.depth = depth
         # A flag to indicate whether this node has divided (branched) or not.
         self.divided = False
+        self.node_type = QuadTreeNodeType.OUTSIDE
 
     def __str__(self):
         """Return a string representation of this node, suitably formatted."""
@@ -128,7 +136,7 @@ class QuadTree:
         s += sp + ', '.join(str(point) for point in self.points)
         if not self.divided:
             return s
-        return s + '\n' + '\n'.join([
+        return "QN-TYPE: "+ self.node_type +"\n" + s + '\n' + '\n'.join([
                 sp + 'nw: ' + str(self.nw), sp + 'ne: ' + str(self.ne),
                 sp + 'se: ' + str(self.se), sp + 'sw: ' + str(self.sw)])
 
