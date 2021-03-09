@@ -1,0 +1,3 @@
+192.168.1.164 slots=1 max-slots=1
+192.168.1.163 slots=2 max-slots=2
+192.168.1.162 slots=2 max-slots=2
