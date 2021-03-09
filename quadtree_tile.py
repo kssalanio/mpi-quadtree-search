@@ -38,6 +38,10 @@ def write_quadtree_to_shp(quadtree, shp_fh, qtile_properties_dict):
         write_quadtree_to_shp(quadtree.nw, shp_fh, qtile_properties_dict)
         
 def rec_tile_search(quadtree, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit=1024, qtile_acc=None):
+
+    if (not quadtree.boundary.intersects(query_shp_geom_boundary)):
+        return
+
     if (quadtree.boundary.to_shapely_poly().within(query_shp_geom)):
         # Return and write to output shapefile if tile is within query shapefile geometry
         qtile_properties_dict["DEPTH"] = quadtree.depth
@@ -90,7 +94,55 @@ def rec_tile_search(quadtree, query_shp_geom, query_shp_geom_boundary, out_shp_f
         if quadtree.sw.boundary.intersects(query_shp_geom_boundary):
             rec_tile_search(quadtree.sw, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit, qtile_acc)
         
+def rec_tile_search_levels(quadtree, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit=1024, qtile_acc=None):
+    # print(f"Tile at depth: {quadtree.depth}")
+    qtile_properties_dict["DEPTH"] = quadtree.depth
+    qtile_properties_dict["CX"] = quadtree.boundary.cx
+    qtile_properties_dict["CY"] = quadtree.boundary.cy
+    qtile_properties_dict["MIN_X"] = quadtree.boundary.min_x
+    qtile_properties_dict["MIN_Y"] = quadtree.boundary.min_y
+    qtile_properties_dict["MAX_X"] = quadtree.boundary.max_x
+    qtile_properties_dict["MAX_Y"] = quadtree.boundary.max_y
+    write_rect_to_shp(quadtree.boundary, out_shp_fh, qtile_properties_dict)
 
+    if (quadtree.boundary.to_shapely_poly().within(query_shp_geom)):
+        # Return and write to output shapefile if tile is within query shapefile geometry
+
+        if qtile_acc is not None:
+            qtile_acc.append(quadtree)
+
+        return
+
+    elif (quadtree.boundary.w <= qtile_length_limit) \
+        or (quadtree.boundary.h <= qtile_length_limit):
+        # Return after hitting tile length limit
+
+        if quadtree.boundary.to_shapely_poly().intersects(query_shp_geom):
+            # Write tile if it intersects query shapefile geometry
+            
+            if qtile_acc is not None:
+                qtile_acc.append(quadtree)
+    
+        return
+
+    else:
+
+        
+        quadtree.divide()
+
+        if quadtree.nw.boundary.intersects(query_shp_geom_boundary):
+            rec_tile_search_levels(quadtree.nw, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit, qtile_acc)
+        
+        if quadtree.ne.boundary.intersects(query_shp_geom_boundary):
+            rec_tile_search_levels(quadtree.ne, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit, qtile_acc)
+        
+        if quadtree.se.boundary.intersects(query_shp_geom_boundary):
+            rec_tile_search_levels(quadtree.se, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit, qtile_acc)
+        
+        if quadtree.sw.boundary.intersects(query_shp_geom_boundary):
+            rec_tile_search_levels(quadtree.sw, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit, qtile_acc)
+
+        
 if __name__ == "__main__":
     #Parse CLI arguments
     parser = argparse.ArgumentParser()
@@ -149,7 +201,25 @@ if __name__ == "__main__":
                 "MIN_X" : bbox.min_x, "MIN_Y" : bbox.min_y, 
                 "MAX_X" : bbox.max_x, "MAX_Y" : bbox.max_y
             }
-            rec_tile_search(qtree, shp_poly, shp_poly_boundary, output_shp_fh, base_qt_dict, qtile_length_limit=1024, qtile_acc=qtile_acc)
+
+            #Write query shp boundary
+            properties_dict = base_qt_dict.copy()
+            properties_dict["DEPTH"] = 99
+            properties_dict["CX"] = shp_poly_boundary.cx
+            properties_dict["CY"] = shp_poly_boundary.cy
+            properties_dict["MIN_X"] = shp_poly_boundary.min_x
+            properties_dict["MIN_Y"] = shp_poly_boundary.min_y
+            properties_dict["MAX_X"] = shp_poly_boundary.max_x
+            properties_dict["MAX_Y"] = shp_poly_boundary.max_y
+            write_rect_to_shp(shp_poly_boundary, output_shp_fh, properties_dict)
+
+
+
+            # rec_tile_search(qtree, shp_poly, shp_poly_boundary, output_shp_fh, base_qt_dict, qtile_length_limit=1024, qtile_acc=qtile_acc)
+            # rec_tile_search(qtree, shp_poly, shp_poly_boundary, output_shp_fh, base_qt_dict, qtile_length_limit=4096, qtile_acc=qtile_acc)
+            rec_tile_search_levels(qtree, shp_poly, shp_poly_boundary, output_shp_fh, base_qt_dict, qtile_length_limit=4096, qtile_acc=qtile_acc)
+        
+        
         
     print(f"ACCUMULATED QTILES: {len(qtile_acc)}")
 

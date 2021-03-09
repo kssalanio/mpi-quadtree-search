@@ -1,9 +1,16 @@
 from shapely.geometry import shape, mapping
 from shapely.ops import unary_union
 import fiona
-import itertools
+import itertools, argparse
 in_shp = "/home/ken/git/thesis-repos/00_Data/thesis/vector/32651/mindoro/mindoro_merged/mindoro_merged.shp"
 out_shp = "/home/ken/git/thesis-repos/00_Data/thesis/vector/32651/mindoro/mindoro_merged/mindoro_dissolved_"
+
+parser.add_argument("in_shp", help="Input shapefile")
+parser.add_argument("out_shp_prefix", help="Output shapefile")
+parser.add_argument("attribute", help="Attribute name filter")
+args = parser.parse_args()
+
+
 with fiona.open(in_shp) as input:
     # preserve the schema of the original shapefile, including the crs
     meta = input.meta

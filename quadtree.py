@@ -135,6 +135,28 @@ class QuadTree:
         s = str(self.boundary) + '\n'
         s += sp + ', '.join(str(point) for point in self.points)
         if not self.divided:
+            return f"{self.node_type.name}:{s}"
+        return "QN-TYPE: "+ self.node_type.name +"\n" + s + '\n' + '\n'.join([
+                sp + 'nw: ' + str(self.nw), sp + 'ne: ' + str(self.ne),
+                sp + 'se: ' + str(self.se), sp + 'sw: ' + str(self.sw)])
+    
+    def __repr__(self):
+        """Return a string representation of this node, suitably formatted."""
+        sp = ' ' * self.depth * 2
+        s = str(self.boundary) + '\n'
+        s += sp + ', '.join(str(point) for point in self.points)
+        if not self.divided:
+            return f"{self.node_type.name}:{s}"
+        return "QN-TYPE: "+ self.node_type.name +"\n" + s + '\n' + '\n'.join([
+                sp + 'nw: ' + str(self.nw), sp + 'ne: ' + str(self.ne),
+                sp + 'se: ' + str(self.se), sp + 'sw: ' + str(self.sw)])
+    
+    def to_string(self):
+        """Return a string representation of this node, suitably formatted."""
+        sp = ' ' * self.depth * 2
+        s = str(self.boundary) + '\n'
+        s += sp + ', '.join(str(point) for point in self.points)
+        if not self.divided:
             return s
         return "QN-TYPE: "+ self.node_type +"\n" + s + '\n' + '\n'.join([
                 sp + 'nw: ' + str(self.nw), sp + 'ne: ' + str(self.ne),
@@ -172,3 +194,6 @@ class QuadTree:
             self.ne.rec_divide(depth_limit, qtile_length_limit)
             self.se.rec_divide(depth_limit, qtile_length_limit)
             self.sw.rec_divide(depth_limit, qtile_length_limit)
+    
+    def intersects_shapely_geom(self, shapely_geom):
+        return self.boundary.to_shapely_poly().intersects(shapely_geom)

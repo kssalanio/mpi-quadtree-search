@@ -4,3 +4,5 @@ BASE_QUADTREE = {
     "max_x" : 1707352,
 	"max_y" : 2650152,
 }
+
+TILE_SIZE = 4096

@@ -63,6 +63,10 @@ def write_quadtree_to_shp(quadtree, shp_fh, qtile_properties_dict):
         write_quadtree_to_shp(quadtree.nw, shp_fh, qtile_properties_dict)
         
 def rec_tile_search(quadtree, query_shp_geom, query_shp_geom_boundary, out_shp_fh, qtile_properties_dict, qtile_length_limit=1024, qtile_acc=None):
+
+    if (not quadtree.boundary.intersects(query_shp_geom_boundary)):
+        return
+
     if (quadtree.boundary.to_shapely_poly().within(query_shp_geom)):
         # Set QuadTreeNodeType
         quadtree.node_type = QuadTreeNodeType.INSIDE
@@ -297,6 +301,10 @@ if __name__ == "__main__":
                 
             with rio.open(raster_out_path, 'w', **raster_meta) as raster_out_ds:
                 raster_out_ds.write(merge_ds)
+            
+            # Close Tile DS readers after writing to save memory
+            for tile_ds in tile_ds_list:
+                tile_ds.close()
         """
         # TEST: Generate base quadtree
         with fiona.open(args.out_shp, 'w','ESRI Shapefile', out_shp_schema, crs=from_epsg(32651), ) as output_shp_fh:
